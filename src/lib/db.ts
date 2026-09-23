@@ -104,3 +104,12 @@ export function confirmException(id: number): Exception | undefined {
     .returning()
     .get();
 }
+
+export function declineException(id: number): Exception | undefined {
+  return db
+    .update(exceptions)
+    .set({ status: "declined" })
+    .where(eq(exceptions.id, id))
+    .returning()
+    .get();
+}

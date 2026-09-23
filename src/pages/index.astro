@@ -74,9 +74,14 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
                   {" "}
                   <span class="status">{exception.status}</span>
                   {exception.status === "proposed" ? (
-                    <form method="post" action={`/api/exceptions/${exception.id}/confirm`}>
-                      <button>Confirm</button>
-                    </form>
+                    <>
+                      <form method="post" action={`/api/exceptions/${exception.id}/confirm`}>
+                        <button>Confirm</button>
+                      </form>
+                      <form method="post" action={`/api/exceptions/${exception.id}/decline`}>
+                        <button>Decline</button>
+                      </form>
+                    </>
                   ) : null}
                 </li>
               );

@@ -104,4 +104,33 @@ describe("crit slot exceptions", () => {
     expect(afterHtml).toContain(`id="exception-${id}"`);
     expect(afterHtml).toMatch(new RegExp(`id="exception-${id}"[^>]*data-status="confirmed"`));
   });
+
+  it("declines an exception, and the decline persists (a proposal doesn't just sit forever)", async () => {
+    const declineReason = `decline probe ${process.hrtime.bigint()}`;
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({
+        groupSlug: "dachi",
+        week: "12",
+        reason: declineReason,
+        day: "Fri",
+        start: "10:30",
+        end: "12:00",
+        room: "",
+      }),
+    );
+
+    const list = await fetch(baseUrl);
+    const html = await list.text();
+    const idMatch = html.match(/id="exception-(\d+)"[\s\S]{0,400}?decline probe/);
+    if (!idMatch) throw new Error("no proposed decline-probe exception found");
+    const id = idMatch[1];
+
+    const res = await post(`/api/exceptions/${id}/decline`);
+    expect(res.status).toBe(303);
+
+    const after = await fetch(baseUrl);
+    const afterHtml = await after.text();
+    expect(afterHtml).toMatch(new RegExp(`id="exception-${id}"[^>]*data-status="declined"`));
+  });
 });
