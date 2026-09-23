@@ -114,6 +114,14 @@ every week --- see that repo's own `now.md` for the current build state.
   stop` (reads the pid itself), not by hunting for the process to kill ---
   confirmed this actually tears down the listener, not just returns a CLI
   success message.
+- `flyctl apps list` fails with a bare "unauthorized" using the session's
+  app-scoped `FLY_API_TOKEN` (that token is scoped to one app, not the org),
+  but `flyctl status -a <this-repo-name>` still works with the same token and
+  is the right way to check whether the course's own Fly setup already
+  created the app before a first deploy --- an empty `Image` field means it
+  exists (created by the course, per `fly.toml`'s own comment) but nothing's
+  been deployed yet, not that the app is missing. Don't read the `apps list`
+  failure as "no app" and skip straight to some other provisioning step.
 
 ## Process notes
 
