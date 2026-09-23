@@ -1,8 +1,10 @@
 ---
-import { listMessages } from "../lib/db";
+import { listExceptions, listGroups } from "../lib/db";
 import "../styles.css";
 
-const messages = listMessages();
+const groups = listGroups();
+const exceptionRows = listExceptions();
+const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
 ---
 
 <!doctype html>
@@ -10,43 +12,138 @@ const messages = listMessages();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>COMP4020 prototype</title>
+    <title>Crit slot exceptions — COMP4020 prototype</title>
   </head>
   <body>
     <nav aria-label="site">
-      <a href="/">Guestbook</a>
+      <a href="/">Exceptions</a>
       <a href="/readme/">About</a>
     </nav>
     <main>
-      <h1>Guestbook</h1>
+      <h1>Crit slot exceptions</h1>
       <p>
-        A minimal full-stack starter: messages live in SQLite on the machine's
-        volume (state survives a reload and a redeploy), and new messages
-        appear in every open tab over a server-sent-events stream — open this
-        page twice and sign it in one. Replace all of this with your own
-        prototype.
+        Six crit groups each hold a standing weekly slot, published on the
+        course website. When a public holiday, room clash or tutor swap needs
+        a one-off replacement, that change currently lands as a hand-edited
+        entry in the website's own data file. This board is the slice before
+        that: anyone can propose a replacement slot for a given week, see
+        every open proposal in one place, and confirm one once it's settled —
+        all of it live across open tabs, and still there on reload.
       </p>
-      <form method="post" action="/api/messages">
-        <label for="body">Leave a message</label>
-        <input id="body" name="body" required maxlength="500" />
-        <button>Sign</button>
-      </form>
-      <ul id="messages">
-        {messages.map((message) => <li>{message.body}</li>)}
-      </ul>
+
+      <section aria-labelledby="groups-heading">
+        <h2 id="groups-heading">Standing slots</h2>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Group</th>
+              <th scope="col">Slot</th>
+              <th scope="col">Tutor</th>
+              <th scope="col">Room</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              groups.map((group) => (
+                <tr>
+                  <th scope="row">{group.name}</th>
+                  <td>
+                    {group.day} {group.start}–{group.end}
+                  </td>
+                  <td>{group.tutorName}</td>
+                  <td>{group.room}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="exceptions-heading">
+        <h2 id="exceptions-heading">Exceptions</h2>
+        <ul id="exceptions">
+          {
+            exceptionRows.map((exception) => {
+              const group = groupBySlug.get(exception.groupSlug);
+              return (
+                <li id={`exception-${exception.id}`} data-status={exception.status}>
+                  <strong>{group?.name ?? exception.groupSlug}</strong>, week{" "}
+                  {exception.week}: moves to {exception.day} {exception.start}–
+                  {exception.end}
+                  {exception.room ? <> in {exception.room}</> : null} — {exception.reason}
+                  {" "}
+                  <span class="status">{exception.status}</span>
+                  {exception.status === "proposed" ? (
+                    <form method="post" action={`/api/exceptions/${exception.id}/confirm`}>
+                      <button>Confirm</button>
+                    </form>
+                  ) : null}
+                </li>
+              );
+            })
+          }
+        </ul>
+      </section>
+
+      <section aria-labelledby="propose-heading">
+        <h2 id="propose-heading">Propose an exception</h2>
+        <form method="post" action="/api/exceptions">
+          <p>
+            <label for="groupSlug">Group</label>
+            <select id="groupSlug" name="groupSlug" required>
+              {groups.map((group) => <option value={group.slug}>{group.name}</option>)}
+            </select>
+          </p>
+          <p>
+            <label for="week">Week</label>
+            <input id="week" name="week" type="number" min="1" max="12" required />
+          </p>
+          <p>
+            <label for="day">New day</label>
+            <input id="day" name="day" required maxlength="10" placeholder="Wed" />
+          </p>
+          <p>
+            <label for="start">New start</label>
+            <input id="start" name="start" required maxlength="5" placeholder="14:00" />
+          </p>
+          <p>
+            <label for="end">New end</label>
+            <input id="end" name="end" required maxlength="5" placeholder="15:30" />
+          </p>
+          <p>
+            <label for="room">New room (only if different)</label>
+            <input id="room" name="room" maxlength="200" />
+          </p>
+          <p>
+            <label for="reason">Reason</label>
+            <input id="reason" name="reason" required maxlength="500" />
+          </p>
+          <button>Propose</button>
+        </form>
+      </section>
     </main>
     <script>
-      // The live half of the demo: subscribe to the SSE stream and prepend
-      // messages as they arrive. The form itself needs none of this — its
-      // POST + redirect re-renders the submitting tab from SQLite; this
-      // stream is how every other tab finds out.
-      const list = document.querySelector("#messages");
+      // The live half of the board: subscribe to the SSE stream and either
+      // refresh an exception already on the page (a confirmation) or add a
+      // newly proposed one — open this page twice and propose in one.
+      const list = document.querySelector("#exceptions");
       const source = new EventSource("/api/events");
       source.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
-        const item = document.createElement("li");
-        item.textContent = message.body;
-        list?.prepend(item);
+        const exception = JSON.parse(event.data);
+        const existing = document.querySelector<HTMLElement>(`#exception-${exception.id}`);
+        const label = `week ${exception.week}: moves to ${exception.day} ${exception.start}–${exception.end}${
+          exception.room ? ` in ${exception.room}` : ""
+        } — ${exception.reason} (${exception.status})`;
+        if (existing) {
+          existing.textContent = label;
+          existing.dataset.status = exception.status;
+        } else {
+          const item = document.createElement("li");
+          item.id = `exception-${exception.id}`;
+          item.dataset.status = exception.status;
+          item.textContent = label;
+          list?.prepend(item);
+        }
       });
     </script>
   </body>

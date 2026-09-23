@@ -1,18 +1,31 @@
-# Your prototype
+# Crit slot exceptions
 
-<!-- TEMPLATE: this file is yours, and the deployed app publishes it in full at
-     /readme/ --- a visitor reads it before they touch the app, and so does the
-     marker. Replace everything in it, this comment included. -->
+Six crit groups (mine, Liuru, among them) each hold a standing weekly slot,
+published by the course website's own `api/crit-groups.json`. When a public
+holiday, a room clash or a tutor swap needs a one-off replacement for a
+group's week, that change today lands as a hand-edited entry in that site's
+`exceptions` array — a PR against the source of truth for what's really a
+small, recurring coordination problem. This is the slice before that PR: a
+board where anyone can propose a replacement slot for a given week, see every
+open proposal in one place, and confirm one once it's settled — live across
+every open tab, and still there on reload.
 
-What this is, in a paragraph: the thing, and what it's for.
+It deliberately doesn't do more than that. It doesn't write back to the
+website's own data (that stays that repo's job), doesn't detect room clashes
+between proposals, and doesn't gate who can propose or confirm — the six
+groups and their tutors are a small, known set, not a public audience that
+needs authentication.
 
 ## What good looks like here
 
-Say what good means for this app: what you decided, what you read or looked at
-while deciding, and what you chose not to build. The rules that decision
-produced live in `CLAUDE.md` and the checks that protect it live in `spec/`;
-this is the argument they came from, so say which parts of good are enforced and
-which are judgement calls.
-
-Images go in `public/` and are linked relatively --- `![alt](public/before.png)`
---- which renders on GitHub and at `/readme/` alike.
+- The standing slots and the two exceptions already live on the published site
+  are real data, fetched from the course API and seeded once at boot
+  (`src/lib/db.ts`) — nothing here is invented to make the demo look populated.
+- The core promise is persistence: propose an exception, reload, it's still
+  there — `spec/exceptions.test.ts` asserts this against the running app, the
+  same way the starter's own `guestbook.test.ts` did before this replaced it.
+- The accessibility floor (`spec/invariants.test.ts`) and the read-only
+  `/readme/` promise (`spec/readme.test.ts`) are enforced checks, not
+  judgement calls; which system to model, and how thin a slice counts as
+  "wired end to end," were mine to decide, and `CLAUDE.md` records the rules
+  that decision produced.

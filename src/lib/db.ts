@@ -1,10 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { desc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { type Message, messages } from "./schema";
+import { type Exception, type Group, exceptions, groups } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
 // fly.toml points DATABASE_PATH at the machine's volume (/data), which is
@@ -24,12 +24,83 @@ export const db = drizzle(client);
 // commit the migration it writes to drizzle/.
 migrate(db, { migrationsFolder: "./drizzle" });
 
-export type { Message };
+export type { Group, Exception };
 
-export function listMessages(): Message[] {
-  return db.select().from(messages).orderBy(desc(messages.id)).limit(50).all();
+// The standing weekly slot for each crit group, as published by the course
+// website's own crit-groups API (comp4020-agentic-coding-studio/api/crit-
+// groups.json) on 2026-09-23. This table is a read-only local cache of that
+// public data — the app never writes to it — so seeding is idempotent and
+// safe to run on every boot.
+const ROOM = "Marie Reay Building (155), Room 4.03";
+const SEED_GROUPS: Group[] = [
+  { slug: "shitao", name: "Shitao", day: "Mon", start: "14:00", end: "15:30", room: ROOM, tutorName: "Ushini Attanayake" },
+  { slug: "bada", name: "Bada", day: "Mon", start: "15:30", end: "17:00", room: ROOM, tutorName: "Ushini Attanayake" },
+  { slug: "baishi", name: "Baishi", day: "Wed", start: "09:00", end: "10:30", room: ROOM, tutorName: "Tom Griffiths" },
+  { slug: "dachi", name: "Dachi", day: "Wed", start: "10:30", end: "12:00", room: ROOM, tutorName: "Tom Griffiths" },
+  { slug: "yunlin", name: "Yunlin", day: "Wed", start: "14:00", end: "15:30", room: ROOM, tutorName: "Bill McAlister" },
+  { slug: "liuru", name: "Liuru", day: "Wed", start: "15:30", end: "17:00", room: ROOM, tutorName: "Bill McAlister" },
+];
+
+// The two exceptions already live on the published site as of the same
+// date, seeded here as already-confirmed history rather than invented demo
+// data, so the board opens with real state instead of an empty table.
+const SEED_EXCEPTIONS: Omit<Exception, "id" | "createdAt">[] = [
+  {
+    groupSlug: "shitao",
+    week: 9,
+    reason: "Monday 5 October is the ACT Labour Day public holiday",
+    day: "Tue",
+    start: "14:00",
+    end: "15:30",
+    room: null,
+    status: "confirmed",
+  },
+  {
+    groupSlug: "bada",
+    week: 9,
+    reason: "Monday 5 October is the ACT Labour Day public holiday",
+    day: "Wed",
+    start: "15:30",
+    end: "17:00",
+    room: "Marie Reay Building (155), Room 3.05",
+    status: "confirmed",
+  },
+];
+
+for (const group of SEED_GROUPS) {
+  db.insert(groups).values(group).onConflictDoNothing().run();
+}
+if (db.select().from(exceptions).all().length === 0) {
+  for (const exception of SEED_EXCEPTIONS) {
+    db.insert(exceptions).values(exception).run();
+  }
 }
 
-export function addMessage(body: string): Message {
-  return db.insert(messages).values({ body }).returning().get();
+export function listGroups(): Group[] {
+  return db.select().from(groups).orderBy(asc(groups.day), asc(groups.start)).all();
+}
+
+export function listExceptions(): Exception[] {
+  return db.select().from(exceptions).orderBy(asc(exceptions.week)).all();
+}
+
+export function addException(input: {
+  groupSlug: string;
+  week: number;
+  reason: string;
+  day: string;
+  start: string;
+  end: string;
+  room: string | null;
+}): Exception {
+  return db.insert(exceptions).values({ ...input, status: "proposed" }).returning().get();
+}
+
+export function confirmException(id: number): Exception | undefined {
+  return db
+    .update(exceptions)
+    .set({ status: "confirmed" })
+    .where(eq(exceptions.id, id))
+    .returning()
+    .get();
 }
