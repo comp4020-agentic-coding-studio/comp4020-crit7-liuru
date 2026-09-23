@@ -133,4 +133,38 @@ describe("crit slot exceptions", () => {
     const afterHtml = await after.text();
     expect(afterHtml).toMatch(new RegExp(`id="exception-${id}"[^>]*data-status="declined"`));
   });
+
+  it("flags a room clash between a proposal and another group's confirmed exception", async () => {
+    // Two groups share the same standing room when no room override is
+    // given (see the seed data in src/lib/db.ts), so leaving room blank on
+    // both proposals below is what makes them collide.
+    const tag = process.hrtime.bigint();
+    const holderReason = `clash holder ${tag}`;
+    const proposalReason = `clash probe ${tag}`;
+    const week = "6";
+    const day = "Sat";
+    const start = "08:00";
+    const end = "09:30";
+
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({ groupSlug: "yunlin", week, reason: holderReason, day, start, end, room: "" }),
+    );
+    const beforeConfirm = await fetch(baseUrl);
+    const holderMatch = (await beforeConfirm.text()).match(
+      new RegExp(`id="exception-(\\d+)"[\\s\\S]{0,400}?${holderReason}`),
+    );
+    if (!holderMatch) throw new Error("no proposed clash-holder exception found");
+    await post(`/api/exceptions/${holderMatch[1]}/confirm`);
+
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({ groupSlug: "shitao", week, reason: proposalReason, day, start, end, room: "" }),
+    );
+
+    const after = await fetch(baseUrl);
+    const html = await after.text();
+    const clashMatch = html.match(new RegExp(`${proposalReason}[\\s\\S]{0,400}?clash-warning[\\s\\S]{0,200}?Yunlin`));
+    expect(clashMatch).not.toBeNull();
+  });
 });

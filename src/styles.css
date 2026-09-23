@@ -60,3 +60,9 @@ td {
   text-transform: uppercase;
   color: #555;
 }
+
+.clash-warning {
+  margin: 0.3rem 0 0;
+  color: #7a3e00;
+  font-size: 0.9em;
+}

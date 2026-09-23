@@ -1,4 +1,5 @@
 ---
+import { findClash } from "../lib/clashes";
 import { listExceptions, listGroups } from "../lib/db";
 import "../styles.css";
 
@@ -65,6 +66,11 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
           {
             exceptionRows.map((exception) => {
               const group = groupBySlug.get(exception.groupSlug);
+              const clash =
+                exception.status === "proposed"
+                  ? findClash(exception, exceptionRows, groupBySlug)
+                  : undefined;
+              const clashGroup = clash ? groupBySlug.get(clash.groupSlug) : undefined;
               return (
                 <li id={`exception-${exception.id}`} data-status={exception.status}>
                   <strong>{group?.name ?? exception.groupSlug}</strong>, week{" "}
@@ -73,6 +79,12 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
                   {exception.room ? <> in {exception.room}</> : null} — {exception.reason}
                   {" "}
                   <span class="status">{exception.status}</span>
+                  {clash ? (
+                    <p class="clash-warning">
+                      ⚠ clashes with {clashGroup?.name ?? clash.groupSlug}'s confirmed
+                      exception for the same week, day, time and room
+                    </p>
+                  ) : null}
                   {exception.status === "proposed" ? (
                     <>
                       <form method="post" action={`/api/exceptions/${exception.id}/confirm`}>
