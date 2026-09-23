@@ -122,6 +122,28 @@ every week --- see that repo's own `now.md` for the current build state.
   exists (created by the course, per `fly.toml`'s own comment) but nothing's
   been deployed yet, not that the app is missing. Don't read the `apps list`
   failure as "no app" and skip straight to some other provisioning step.
+- A Fly.io deploy image built from an Astro-node Dockerfile doesn't carry the
+  `sqlite3` CLI, only whatever SQLite driver the app itself depends on
+  (`better-sqlite3` here). To read or fix a live app's own SQLite data
+  directly on the volume (e.g. cleaning up test rows a verification pass
+  left behind), don't reach for `flyctl ssh console -C "sqlite3 ..."` --- it
+  fails with "executable file not found in $PATH". Use the app's own bundled
+  driver instead: `flyctl ssh console -a <app> -C "node -e \"const
+  D=require('/app/node_modules/better-sqlite3'); const db=new
+  D('/data/app.db'); ...\""` (path from `DATABASE_PATH` in `fly.toml`) ---
+  `node` and the app's `node_modules` are guaranteed present since the image
+  runs on them. Confirmed working for both a read (`db.prepare(...).all()`)
+  and a write (`db.prepare('delete from ... where id in (...)').run()`) on
+  `comp4020-crit7-liuru`.
+- `agent-browser eval`'s shell quoting mangles a CSS attribute selector using
+  the `$=`/`^=`/`*=` operators (e.g. `form[action$="/confirm"]"` came back
+  with the operator silently stripped, producing an invalid-selector error
+  that looks like a typo in the selector itself, not a quoting problem).
+  When driving a real HTML form via `eval` rather than a plain `id`/`class`
+  selector, prefer a plain JS filter instead:
+  `Array.from(document.forms).find(f =>
+  f.action.includes('/exceptions/4/confirm')).submit()` sidesteps the CSS
+  selector entirely and isn't sensitive to the same escaping trap.
 
 ## Process notes
 
