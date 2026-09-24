@@ -555,3 +555,19 @@ every week --- see that repo's own `now.md` for the current build state.
   the deployed app (not just locally) by driving the writes from `curl`
   outside the browser while an already-open, never-reloaded tab was watched
   for the warning to appear on its own.
+- `spec/exceptions.test.ts` runs its `it` blocks sequentially against one
+  shared spec server (`spec/global-setup.ts` spawns it once per test run,
+  not per test), so state accumulates across the whole file in declaration
+  order --- there's no `beforeEach` reset and no `.concurrent`. A test that
+  needs to observe a *genuinely empty* state for some group (e.g. an
+  empty-state-message check added on `comp4020-crit7-liuru`'s sixth run)
+  has to run before any earlier test in the same file posts an exception
+  for that group, not just use a uniquely-tagged reason string the way the
+  existing clash/filter tests do to avoid collisions on populated state.
+  Picked a group with no seeded exceptions (`db.ts`'s `SEED_EXCEPTIONS`
+  only covers Shitao and Bada) and placed the new test immediately after
+  the file's first (read-only) test, before any group gets a proposal.
+  Worth the same check before adding any future "is empty" assertion to
+  this file: grep the file for every `groupSlug:` value already posted,
+  and place the new test earlier than the first one that touches the
+  group it needs empty.
