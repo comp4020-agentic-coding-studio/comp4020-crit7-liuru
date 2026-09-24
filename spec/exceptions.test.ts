@@ -31,6 +31,17 @@ describe("crit slot exceptions", () => {
     }
   });
 
+  // Runs before any other test in this file proposes an exception for
+  // Dachi, so its filtered view is still genuinely empty here — the seed
+  // data (src/lib/db.ts) only seeds Shitao and Bada with confirmed
+  // exceptions, and every other test that touches Dachi runs later.
+  it("shows an empty-state message when a filtered group has no exceptions", async () => {
+    const res = await fetch(new URL("/?group=dachi", baseUrl));
+    const html = await res.text();
+    const list = html.match(/<ul id="exceptions"[\s\S]*?<\/ul>/)?.[0] ?? "";
+    expect(list).toContain("Dachi has no exceptions yet.");
+  });
+
   it("accepts a proposed exception and redirects back to the board", async () => {
     const res = await post(
       "/api/exceptions",

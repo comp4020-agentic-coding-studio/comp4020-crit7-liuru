@@ -95,6 +95,13 @@ const visibleExceptions = filterSlug
         }
         <ul id="exceptions" data-groups={JSON.stringify(groups)}>
           {
+            filterSlug && visibleExceptions.length === 0 ? (
+              <li class="empty-state">
+                {groupBySlug.get(filterSlug)?.name ?? filterSlug} has no exceptions yet.
+              </li>
+            ) : null
+          }
+          {
             visibleExceptions.map((exception) => {
               const group = groupBySlug.get(exception.groupSlug);
               const clash =
@@ -238,7 +245,14 @@ const visibleExceptions = filterSlug
       source.addEventListener("message", (event) => {
         const all: Exception[] = JSON.parse(event.data);
         const visible = filterSlug ? all.filter((exception) => exception.groupSlug === filterSlug) : all;
-        list?.replaceChildren(...visible.map((exception) => renderRow(exception, all)));
+        if (filterSlug && visible.length === 0) {
+          const li = document.createElement("li");
+          li.className = "empty-state";
+          li.textContent = `${groupBySlug.get(filterSlug)?.name ?? filterSlug} has no exceptions yet.`;
+          list?.replaceChildren(li);
+        } else {
+          list?.replaceChildren(...visible.map((exception) => renderRow(exception, all)));
+        }
       });
     </script>
   </body>

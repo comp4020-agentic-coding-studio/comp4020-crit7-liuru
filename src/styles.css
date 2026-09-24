@@ -66,3 +66,8 @@ td {
   color: #7a3e00;
   font-size: 0.9em;
 }
+
+.empty-state {
+  color: #555;
+  font-style: italic;
+}
