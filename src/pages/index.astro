@@ -6,6 +6,15 @@ import "../styles.css";
 const groups = listGroups();
 const exceptionRows = listExceptions();
 const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
+
+// A group's own history is otherwise buried in a board showing every group's
+// proposals mixed together. Clash detection still needs the *full* list
+// (exceptionRows) regardless of this filter — a clash can depend on another
+// group's row this view is hiding.
+const filterSlug = Astro.url.searchParams.get("group") ?? "";
+const visibleExceptions = filterSlug
+  ? exceptionRows.filter((exception) => exception.groupSlug === filterSlug)
+  : exceptionRows;
 ---
 
 <!doctype html>
@@ -62,9 +71,31 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
 
       <section aria-labelledby="exceptions-heading">
         <h2 id="exceptions-heading">Exceptions</h2>
+        <form method="get" action="/">
+          <label for="group-filter">Filter by group</label>
+          <select id="group-filter" name="group">
+            <option value="">All groups</option>
+            {
+              groups.map((group) => (
+                <option value={group.slug} selected={group.slug === filterSlug}>
+                  {group.name}
+                </option>
+              ))
+            }
+          </select>
+          <button>Filter</button>
+        </form>
+        {
+          filterSlug ? (
+            <p>
+              Showing only <strong>{groupBySlug.get(filterSlug)?.name ?? filterSlug}</strong>'s
+              proposals — <a href="/">show all groups</a>.
+            </p>
+          ) : null
+        }
         <ul id="exceptions" data-groups={JSON.stringify(groups)}>
           {
-            exceptionRows.map((exception) => {
+            visibleExceptions.map((exception) => {
               const group = groupBySlug.get(exception.groupSlug);
               const clash =
                 exception.status === "proposed"
@@ -152,6 +183,10 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
       const list = document.querySelector<HTMLElement>("#exceptions");
       const groups: Group[] = JSON.parse(list?.dataset.groups ?? "[]");
       const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
+      // The filter is a plain GET query param — a full navigation applies a
+      // new one, so this only has to hold the value steady across live SSE
+      // updates on the page already loaded.
+      const filterSlug = new URLSearchParams(location.search).get("group") ?? "";
 
       function renderRow(exception: Exception, all: Exception[]): HTMLLIElement {
         const li = document.createElement("li");
@@ -202,7 +237,8 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
       const source = new EventSource("/api/events");
       source.addEventListener("message", (event) => {
         const all: Exception[] = JSON.parse(event.data);
-        list?.replaceChildren(...all.map((exception) => renderRow(exception, all)));
+        const visible = filterSlug ? all.filter((exception) => exception.groupSlug === filterSlug) : all;
+        list?.replaceChildren(...visible.map((exception) => renderRow(exception, all)));
       });
     </script>
   </body>

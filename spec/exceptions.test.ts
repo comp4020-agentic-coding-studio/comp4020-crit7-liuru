@@ -167,4 +167,25 @@ describe("crit slot exceptions", () => {
     const clashMatch = html.match(new RegExp(`${proposalReason}[\\s\\S]{0,400}?clash-warning[\\s\\S]{0,200}?Yunlin`));
     expect(clashMatch).not.toBeNull();
   });
+
+  it("filters the exceptions list to one group via ?group=", async () => {
+    const tag = process.hrtime.bigint();
+    const ownReason = `filter probe own ${tag}`;
+    const otherReason = `filter probe other ${tag}`;
+
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({ groupSlug: "liuru", week: "4", reason: ownReason, day: "Thu", start: "16:00", end: "17:30", room: "" }),
+    );
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({ groupSlug: "baishi", week: "4", reason: otherReason, day: "Thu", start: "09:00", end: "10:30", room: "" }),
+    );
+
+    const res = await fetch(new URL("/?group=liuru", baseUrl));
+    const html = await res.text();
+    const list = html.match(/<ul id="exceptions"[\s\S]*?<\/ul>/)?.[0] ?? "";
+    expect(list).toContain(ownReason);
+    expect(list).not.toContain(otherReason);
+  });
 });
