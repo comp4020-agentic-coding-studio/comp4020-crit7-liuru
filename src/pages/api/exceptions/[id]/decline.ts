@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { declineException } from "../../../../lib/db";
+import { declineException, listExceptions } from "../../../../lib/db";
 import { bus } from "../../../../lib/events";
 
 // The other end of a proposal's lifecycle: a room clash or a tutor swap that
@@ -10,7 +10,7 @@ export const POST: APIRoute = async ({ params, redirect }) => {
   const id = Number(params.id);
   if (Number.isInteger(id)) {
     const exception = declineException(id);
-    if (exception) bus.emit("exception", exception);
+    if (exception) bus.emit("exceptions", listExceptions());
   }
   return redirect("/", 303);
 };

@@ -7,8 +7,16 @@ import { bus } from "../../lib/events";
 // SSE is one-directional (server → browser) and plain HTTP, which makes it
 // the simplest live channel that works everywhere — reach for WebSockets
 // only when the client needs to push over the same connection.
+//
+// Each message carries the whole exceptions list, not just the row that
+// changed: a clash warning depends on *other* rows (another group's
+// confirmed exception), so a client re-deriving it from one row alone would
+// miss a clash that appears or clears because of an exception it was never
+// told about. The list is small enough that resending it all is cheaper
+// than the alternative — a second, growing message shape for "and here's
+// what else this affects".
 export const GET: APIRoute = () => {
-  let onException: (exception: Exception) => void;
+  let onExceptions: (all: Exception[]) => void;
   let heartbeat: ReturnType<typeof setInterval>;
 
   const stream = new ReadableStream<string>({
@@ -18,14 +26,14 @@ export const GET: APIRoute = () => {
       // connection as idle
       controller.enqueue(": connected\n\n");
       heartbeat = setInterval(() => controller.enqueue(": ping\n\n"), 30_000);
-      onException = (exception) => {
-        controller.enqueue(`data: ${JSON.stringify(exception)}\n\n`);
+      onExceptions = (all) => {
+        controller.enqueue(`data: ${JSON.stringify(all)}\n\n`);
       };
-      bus.on("exception", onException);
+      bus.on("exceptions", onExceptions);
     },
     cancel() {
       clearInterval(heartbeat);
-      bus.off("exception", onException);
+      bus.off("exceptions", onExceptions);
     },
   });
 

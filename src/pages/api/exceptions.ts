@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { addException } from "../../lib/db";
+import { addException, listExceptions } from "../../lib/db";
 import { bus } from "../../lib/events";
 
 // The write half of the board: a group (or their tutor) proposes a one-off
@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const room = String(form.get("room") ?? "").trim();
 
   if (groupSlug && Number.isInteger(week) && reason && day && start && end) {
-    const exception = addException({
+    addException({
       groupSlug,
       week,
       reason: reason.slice(0, 500),
@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       end,
       room: room ? room.slice(0, 200) : null,
     });
-    bus.emit("exception", exception);
+    bus.emit("exceptions", listExceptions());
   }
   return redirect("/", 303);
 };

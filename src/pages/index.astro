@@ -62,7 +62,7 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
 
       <section aria-labelledby="exceptions-heading">
         <h2 id="exceptions-heading">Exceptions</h2>
-        <ul id="exceptions">
+        <ul id="exceptions" data-groups={JSON.stringify(groups)}>
           {
             exceptionRows.map((exception) => {
               const group = groupBySlug.get(exception.groupSlug);
@@ -140,27 +140,69 @@ const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
       </section>
     </main>
     <script>
-      // The live half of the board: subscribe to the SSE stream and either
-      // refresh an exception already on the page (a confirmation) or add a
-      // newly proposed one — open this page twice and propose in one.
-      const list = document.querySelector("#exceptions");
+      // The live half of the board: subscribe to the SSE stream and rebuild
+      // the whole list from the whole-list payload it carries (see
+      // src/pages/api/events.ts for why one row isn't enough) — reusing the
+      // exact same findClash the server rendered with, so a clash warning
+      // appears or clears the instant another tab's proposal/confirm/decline
+      // changes it, not just on the next reload.
+      import { findClash } from "../lib/clashes";
+      import type { Exception, Group } from "../lib/schema";
+
+      const list = document.querySelector<HTMLElement>("#exceptions");
+      const groups: Group[] = JSON.parse(list?.dataset.groups ?? "[]");
+      const groupBySlug = new Map(groups.map((group) => [group.slug, group]));
+
+      function renderRow(exception: Exception, all: Exception[]): HTMLLIElement {
+        const li = document.createElement("li");
+        li.id = `exception-${exception.id}`;
+        li.dataset.status = exception.status;
+
+        const strong = document.createElement("strong");
+        strong.textContent = groupBySlug.get(exception.groupSlug)?.name ?? exception.groupSlug;
+        li.append(strong);
+
+        const roomText = exception.room ? ` in ${exception.room}` : "";
+        li.append(
+          `, week ${exception.week}: moves to ${exception.day} ${exception.start}–${exception.end}${roomText} — ${exception.reason} `,
+        );
+
+        const status = document.createElement("span");
+        status.className = "status";
+        status.textContent = exception.status;
+        li.append(status);
+
+        if (exception.status === "proposed") {
+          const clash = findClash(exception, all, groupBySlug);
+          if (clash) {
+            const p = document.createElement("p");
+            p.className = "clash-warning";
+            const clashGroupName = groupBySlug.get(clash.groupSlug)?.name ?? clash.groupSlug;
+            p.textContent = `⚠ clashes with ${clashGroupName}'s confirmed exception for the same week, day, time and room`;
+            li.append(p);
+          }
+
+          for (const [label, action] of [
+            ["Confirm", `/api/exceptions/${exception.id}/confirm`],
+            ["Decline", `/api/exceptions/${exception.id}/decline`],
+          ] as const) {
+            const form = document.createElement("form");
+            form.method = "post";
+            form.action = action;
+            const button = document.createElement("button");
+            button.textContent = label;
+            form.append(button);
+            li.append(form);
+          }
+        }
+
+        return li;
+      }
+
       const source = new EventSource("/api/events");
       source.addEventListener("message", (event) => {
-        const exception = JSON.parse(event.data);
-        const existing = document.querySelector<HTMLElement>(`#exception-${exception.id}`);
-        const label = `week ${exception.week}: moves to ${exception.day} ${exception.start}–${exception.end}${
-          exception.room ? ` in ${exception.room}` : ""
-        } — ${exception.reason} (${exception.status})`;
-        if (existing) {
-          existing.textContent = label;
-          existing.dataset.status = exception.status;
-        } else {
-          const item = document.createElement("li");
-          item.id = `exception-${exception.id}`;
-          item.dataset.status = exception.status;
-          item.textContent = label;
-          list?.prepend(item);
-        }
+        const all: Exception[] = JSON.parse(event.data);
+        list?.replaceChildren(...all.map((exception) => renderRow(exception, all)));
       });
     </script>
   </body>
