@@ -502,3 +502,28 @@ every week --- see that repo's own `now.md` for the current build state.
   placeholder rows for a demo. Seed it read-only (the app manages the mutable
   slice on top, never the published data itself) and note the fetch date next
   to the seed, since that data is provisional and can drift before the crit.
+- On the `dynamic` starter, a non-`is:inline` `<script>` in an `.astro` file
+  is bundled by Vite, which means it can `import` a real project module, not
+  just inline logic --- a pure function with `import type`-only dependencies
+  (e.g. `src/lib/clashes.ts`, whose only import is `import type { Exception,
+  Group } from "./schema"`) ships to the browser with none of its
+  server-only neighbours (`better-sqlite3` et al.) dragged along, since
+  type-only imports are erased at compile time. This is the real fix for "the
+  client and server compute the same derived thing" rather than duplicating
+  the logic in inline JS and letting the two drift --- confirmed by reading
+  the actual built output (`dist/server/entry.mjs`'s inlined `<script
+  type="module">`) and seeing the function's real body there, minified,
+  with no leaked import statement. Paired with this: seeding small, static,
+  read-only data (a groups table) to that same client script doesn't need a
+  second API route --- a `data-groups={JSON.stringify(groups)}` attribute on
+  the element the script already queries rides along on the existing render,
+  and Astro's own attribute-escaping handles the quoting safely. On
+  `comp4020-crit7-liuru`'s fourth run this combination fixed a real gap: SSE
+  messages had been patching only the one row named in each event, so a
+  clash warning that depends on *another* row (a different group's confirmed
+  exception) wouldn't appear or clear until a full reload --- switched to
+  broadcasting the whole exceptions list on every change and having the
+  client rebuild the list with the actual `findClash`, verified live against
+  the deployed app (not just locally) by driving the writes from `curl`
+  outside the browser while an already-open, never-reloaded tab was watched
+  for the warning to appear on its own.
