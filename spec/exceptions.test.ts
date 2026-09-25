@@ -198,6 +198,51 @@ describe("crit slot exceptions", () => {
     expect((await after.text()).includes("bogus slug probe")).toBe(false);
   });
 
+  it("rejects a week outside the form's own 1–12 range, without crashing", async () => {
+    const outOfRangeReason = `out of range week probe ${process.hrtime.bigint()}`;
+    const res = await post(
+      "/api/exceptions",
+      new URLSearchParams({
+        groupSlug: "dachi",
+        week: "0",
+        reason: outOfRangeReason,
+        day: "Mon",
+        start: "09:00",
+        end: "10:00",
+        room: "",
+      }),
+    );
+    expect(res.status).toBe(303);
+
+    const after = await fetch(baseUrl);
+    expect((await after.text()).includes(outOfRangeReason)).toBe(false);
+  });
+
+  it("truncates day/start/end to the form's own maxlength, like reason and room already are", async () => {
+    const tag = process.hrtime.bigint();
+    const longFieldsReason = `long fields probe ${tag}`;
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({
+        groupSlug: "dachi",
+        week: "5",
+        reason: longFieldsReason,
+        day: "Wednesday!!",
+        start: "14:00:00",
+        end: "15:30:00",
+        room: "",
+      }),
+    );
+
+    const after = await fetch(baseUrl);
+    const html = await after.text();
+    const row = html.match(new RegExp(`<li[^>]*>[\\s\\S]{0,400}?${longFieldsReason}`))?.[0] ?? "";
+    expect(row).toContain("Wednesday!"); // day.slice(0, 10)
+    expect(row).not.toContain("Wednesday!!");
+    expect(row).toContain("14:00"); // start.slice(0, 5)
+    expect(row).not.toContain("14:00:00");
+  });
+
   it("won't re-decide an exception that's already confirmed or declined", async () => {
     const tag = process.hrtime.bigint();
     const confirmedReason = `redecide confirmed probe ${tag}`;

@@ -16,14 +16,18 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const end = String(form.get("end") ?? "").trim();
   const room = String(form.get("room") ?? "").trim();
 
-  if (groupSlug && Number.isInteger(week) && reason && day && start && end) {
+  // week/day/start/end are only bounded by the form's own min/max/maxlength
+  // attributes — a raw POST skips those the same way it skips the <select>,
+  // so this route re-checks the range and truncates to the same limits
+  // rather than trusting the client to have honoured them.
+  if (groupSlug && Number.isInteger(week) && week >= 1 && week <= 12 && reason && day && start && end) {
     const exception = addException({
       groupSlug,
       week,
       reason: reason.slice(0, 500),
-      day,
-      start,
-      end,
+      day: day.slice(0, 10),
+      start: start.slice(0, 5),
+      end: end.slice(0, 5),
       room: room ? room.slice(0, 200) : null,
     });
     if (exception) bus.emit("exceptions", listExceptions());
