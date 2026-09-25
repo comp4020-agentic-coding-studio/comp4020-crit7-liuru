@@ -71,3 +71,9 @@ td {
   color: #555;
   font-style: italic;
 }
+
+.cache-note {
+  color: #555;
+  font-size: 0.9em;
+  max-width: 42rem;
+}

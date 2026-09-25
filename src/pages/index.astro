@@ -1,6 +1,6 @@
 ---
 import { findClash } from "../lib/clashes";
-import { listExceptions, listGroups } from "../lib/db";
+import { GROUPS_LAST_CHECKED, listExceptions, listGroups } from "../lib/db";
 import "../styles.css";
 
 const groups = listGroups();
@@ -43,6 +43,13 @@ const visibleExceptions = filterSlug
 
       <section aria-labelledby="groups-heading">
         <h2 id="groups-heading">Standing slots</h2>
+        <p class="cache-note">
+          Cached from the course website's published API, last checked{" "}
+          {GROUPS_LAST_CHECKED}. It doesn't refresh itself — if the website
+          changes a slot mid-week, this table won't notice until the app is
+          redeployed with a fresh seed. The exceptions below are this app's
+          own live state, not a cache.
+        </p>
         <table>
           <thead>
             <tr>
