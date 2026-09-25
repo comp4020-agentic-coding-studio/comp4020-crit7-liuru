@@ -586,3 +586,28 @@ every week --- see that repo's own `now.md` for the current build state.
   family of judgement call as the `forced-colors` and `prefers-reduced-
   motion` notes above: the flagged gap names a symptom, and the right fix
   isn't always the most literal reading of it.
+- On a full-stack `dynamic`-starter deliverable, "the UI only shows a
+  Confirm/Decline form while a row is `proposed`" is not the same claim as
+  "you can't confirm or decline a row that isn't proposed" --- the first is
+  a rendering fact, the second needs its own guard at the layer a raw POST
+  can reach past the UI. `better-sqlite3` also enables `PRAGMA foreign_keys`
+  by default (confirmed by direct test, not documented anywhere in this
+  app's own code), so a foreign-key column declared in Drizzle's schema
+  (`groupSlug: text().references(() => groups.slug)`) is actually enforced
+  at the SQLite level --- a POST with a slug outside the `<select>`'s
+  options doesn't silently fail, it throws. On `comp4020-crit7-liuru`'s
+  eighth run this was two real, previously-unflagged gaps found by reading
+  every source file fresh rather than re-verifying prior fixes (the
+  seventh run's hand-off explicitly warned against manufacturing busywork
+  if a fresh pass found nothing --- it's worth doing the fresh pass before
+  concluding that). Fixed at the database-access layer (`src/lib/db.ts`):
+  `addException` checks the slug against `groups` before inserting and
+  returns `undefined` on a miss; `confirmException`/`declineException` add
+  `eq(exceptions.status, "proposed")` to their own `WHERE` clause so a
+  stale or repeat call is a silent no-op, reusing the same "`undefined`
+  means nothing happened" shape the routes already handled. The general
+  lesson: for any state machine a UI enforces only by hiding buttons
+  (proposed/confirmed/declined, draft/published, open/closed), check
+  whether the API route itself enforces the same transition rule, not just
+  whether the rendered page does --- a direct `curl` past the form is the
+  right way to test this, not a browser click.
