@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { type Exception, type Group, exceptions, groups } from "./schema";
@@ -90,6 +90,11 @@ export function listExceptions(): Exception[] {
   return db.select().from(exceptions).orderBy(asc(exceptions.week)).all();
 }
 
+// groupSlug rides in on a raw form POST, not just the <select> the UI
+// offers, and the table's own foreign-key constraint (better-sqlite3 enables
+// enforcement by default) turns an unknown one into a thrown error rather
+// than a clean rejection — checked against the same read path the UI uses,
+// so there's one source of "which slugs are real", not a second copy of it.
 export function addException(input: {
   groupSlug: string;
   week: number;
@@ -98,15 +103,23 @@ export function addException(input: {
   start: string;
   end: string;
   room: string | null;
-}): Exception {
+}): Exception | undefined {
+  const knownGroup = db.select().from(groups).where(eq(groups.slug, input.groupSlug)).get();
+  if (!knownGroup) return undefined;
   return db.insert(exceptions).values({ ...input, status: "proposed" }).returning().get();
 }
 
+// Confirming or declining only applies to a proposal still awaiting a
+// decision — the `status: "proposed"` guard in the WHERE clause makes an
+// already-decided row a no-op (returning `undefined`, same as an unknown
+// id) instead of letting a direct API call flip a settled exception back
+// and forth. The rendered board already hides these forms once a row is
+// decided; this is the same rule enforced where a raw POST can't skip it.
 export function confirmException(id: number): Exception | undefined {
   return db
     .update(exceptions)
     .set({ status: "confirmed" })
-    .where(eq(exceptions.id, id))
+    .where(and(eq(exceptions.id, id), eq(exceptions.status, "proposed")))
     .returning()
     .get();
 }
@@ -115,7 +128,7 @@ export function declineException(id: number): Exception | undefined {
   return db
     .update(exceptions)
     .set({ status: "declined" })
-    .where(eq(exceptions.id, id))
+    .where(and(eq(exceptions.id, id), eq(exceptions.status, "proposed")))
     .returning()
     .get();
 }

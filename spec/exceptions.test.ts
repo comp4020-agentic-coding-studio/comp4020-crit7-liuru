@@ -179,6 +179,56 @@ describe("crit slot exceptions", () => {
     expect(clashMatch).not.toBeNull();
   });
 
+  it("rejects a proposal for a group slug that doesn't exist, without crashing", async () => {
+    const res = await post(
+      "/api/exceptions",
+      new URLSearchParams({
+        groupSlug: "not-a-real-group",
+        week: "7",
+        reason: `bogus slug probe ${process.hrtime.bigint()}`,
+        day: "Mon",
+        start: "09:00",
+        end: "10:00",
+        room: "",
+      }),
+    );
+    expect(res.status).toBe(303);
+
+    const after = await fetch(baseUrl);
+    expect((await after.text()).includes("bogus slug probe")).toBe(false);
+  });
+
+  it("won't re-decide an exception that's already confirmed or declined", async () => {
+    const tag = process.hrtime.bigint();
+    const confirmedReason = `redecide confirmed probe ${tag}`;
+
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({
+        groupSlug: "dachi",
+        week: "8",
+        reason: confirmedReason,
+        day: "Sun",
+        start: "11:00",
+        end: "12:30",
+        room: "",
+      }),
+    );
+    const list = await fetch(baseUrl);
+    const html = await list.text();
+    const idMatch = html.match(new RegExp(`id="exception-(\\d+)"[\\s\\S]{0,400}?${confirmedReason}`));
+    if (!idMatch) throw new Error("no proposed redecide-probe exception found");
+    const id = idMatch[1];
+
+    await post(`/api/exceptions/${id}/confirm`);
+    // A second decline on an already-confirmed row must not flip it back.
+    await post(`/api/exceptions/${id}/decline`);
+
+    const after = await fetch(baseUrl);
+    const afterHtml = await after.text();
+    expect(afterHtml).toMatch(new RegExp(`id="exception-${id}"[^>]*data-status="confirmed"`));
+  });
+
   it("filters the exceptions list to one group via ?group=", async () => {
     const tag = process.hrtime.bigint();
     const ownReason = `filter probe own ${tag}`;

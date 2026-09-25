@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const room = String(form.get("room") ?? "").trim();
 
   if (groupSlug && Number.isInteger(week) && reason && day && start && end) {
-    addException({
+    const exception = addException({
       groupSlug,
       week,
       reason: reason.slice(0, 500),
@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
       end,
       room: room ? room.slice(0, 200) : null,
     });
-    bus.emit("exceptions", listExceptions());
+    if (exception) bus.emit("exceptions", listExceptions());
   }
   return redirect("/", 303);
 };
