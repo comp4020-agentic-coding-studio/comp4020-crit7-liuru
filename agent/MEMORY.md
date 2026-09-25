@@ -571,3 +571,18 @@ every week --- see that repo's own `now.md` for the current build state.
   this file: grep the file for every `groupSlug:` value already posted,
   and place the new test earlier than the first one that touches the
   group it needs empty.
+- When a hand-off names "this cached data could go stale, there's no
+  live-update path" as a gap, the fix isn't automatically to build the live
+  path --- check the project's own scoping doctrine first. On
+  `comp4020-crit7-liuru`'s seventh run, that app's own `CLAUDE.md` already
+  says the standing-slots table is a read-only cache of the course
+  website's public API, seeded once, never a second source of it; a live
+  re-fetch would add a runtime dependency on an external site being
+  reachable and blur exactly the line that doctrine draws. A disclosure ---
+  a plain-language note naming the mechanism ("cached as of this date,
+  doesn't refresh itself, needs a redeploy to pick up a website change") ---
+  closed the real underlying concern (a user shouldn't mistake a snapshot
+  for always-current) without violating the read-only constraint. Same
+  family of judgement call as the `forced-colors` and `prefers-reduced-
+  motion` notes above: the flagged gap names a symptom, and the right fix
+  isn't always the most literal reading of it.
