@@ -100,7 +100,7 @@ const visibleExceptions = filterSlug
             </p>
           ) : null
         }
-        <ul id="exceptions" data-groups={JSON.stringify(groups)}>
+        <ul id="exceptions" data-groups={JSON.stringify(groups)} aria-live="polite">
           {
             filterSlug && visibleExceptions.length === 0 ? (
               <li class="empty-state">
