@@ -11,10 +11,9 @@ open proposal in one place, and confirm one once it's settled — live across
 every open tab, and still there on reload.
 
 It deliberately doesn't do more than that. It doesn't write back to the
-website's own data (that stays that repo's job), doesn't detect room clashes
-between proposals, and doesn't gate who can propose or confirm — the six
-groups and their tutors are a small, known set, not a public audience that
-needs authentication.
+website's own data (that stays that repo's job), and it doesn't gate who can
+propose or confirm — the six groups and their tutors are a small, known set,
+not a public audience that needs authentication.
 
 ## What good looks like here
 
@@ -24,6 +23,11 @@ needs authentication.
 - The core promise is persistence: propose an exception, reload, it's still
   there — `spec/exceptions.test.ts` asserts this against the running app, the
   same way the starter's own `guestbook.test.ts` did before this replaced it.
+- A proposal that would double-book a room already held by another group's
+  confirmed exception (same week, day, time, room) gets a visible warning,
+  live across tabs and surviving either or both sides later getting confirmed
+  — `src/lib/clashes.ts`, exercised by the clash tests in
+  `spec/exceptions.test.ts`.
 - The accessibility floor (`spec/invariants.test.ts`) and the read-only
   `/readme/` promise (`spec/readme.test.ts`) are enforced checks, not
   judgement calls; which system to model, and how thin a slice counts as
