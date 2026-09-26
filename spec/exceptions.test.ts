@@ -179,6 +179,46 @@ describe("crit slot exceptions", () => {
     expect(clashMatch).not.toBeNull();
   });
 
+  it("keeps a clash warning visible after both clashing exceptions are confirmed", async () => {
+    // Unlike the proposal-vs-confirmed clash test above, this confirms
+    // *both* sides independently — the scenario where the warning must not
+    // disappear once neither row is "proposed" any more.
+    const tag = process.hrtime.bigint();
+    const firstReason = `both-confirmed clash first ${tag}`;
+    const secondReason = `both-confirmed clash second ${tag}`;
+    const week = "3";
+    const day = "Sat";
+    const start = "13:00";
+    const end = "14:30";
+
+    // Scoped to a single <li> (never crossing a "</li>" boundary) so a
+    // reason tag can't accidentally match against a *different* row's id
+    // when two rows for the same clashing slot sit close together in the
+    // rendered list.
+    const rowFor = (html: string, reason: string) =>
+      html.match(new RegExp(`<li id="exception-(\\d+)"(?:(?!</li>)[\\s\\S])*?${reason}(?:(?!</li>)[\\s\\S])*?</li>`));
+
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({ groupSlug: "baishi", week, reason: firstReason, day, start, end, room: "" }),
+    );
+    const firstMatch = rowFor(await (await fetch(baseUrl)).text(), firstReason);
+    if (!firstMatch) throw new Error("no proposed first-clash exception found");
+    await post(`/api/exceptions/${firstMatch[1]}/confirm`);
+
+    await post(
+      "/api/exceptions",
+      new URLSearchParams({ groupSlug: "dachi", week, reason: secondReason, day, start, end, room: "" }),
+    );
+    const secondMatch = rowFor(await (await fetch(baseUrl)).text(), secondReason);
+    if (!secondMatch) throw new Error("no proposed second-clash exception found");
+    await post(`/api/exceptions/${secondMatch[1]}/confirm`);
+
+    const html = await (await fetch(baseUrl)).text();
+    expect(rowFor(html, firstReason)?.[0]).toContain("clash-warning");
+    expect(rowFor(html, secondReason)?.[0]).toContain("clash-warning");
+  });
+
   it("rejects a proposal for a group slug that doesn't exist, without crashing", async () => {
     const res = await post(
       "/api/exceptions",

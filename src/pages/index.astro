@@ -111,8 +111,16 @@ const visibleExceptions = filterSlug
           {
             visibleExceptions.map((exception) => {
               const group = groupBySlug.get(exception.groupSlug);
+              // Checked for "proposed" and "confirmed" alike, not just
+              // "proposed": two proposals can each get confirmed
+              // independently (the whole point of a live, multi-tab board)
+              // without either confirmer ever seeing the other's clash
+              // warning at the moment they act. Keeping the check alive
+              // after confirmation is what makes a real double-booking stay
+              // visible instead of disappearing the instant both sides
+              // settle.
               const clash =
-                exception.status === "proposed"
+                exception.status !== "declined"
                   ? findClash(exception, exceptionRows, groupBySlug)
                   : undefined;
               const clashGroup = clash ? groupBySlug.get(clash.groupSlug) : undefined;
@@ -221,7 +229,10 @@ const visibleExceptions = filterSlug
         status.textContent = exception.status;
         li.append(status);
 
-        if (exception.status === "proposed") {
+        // Same rule as the server render: check proposed and confirmed rows
+        // alike, so a clash between two independently-confirmed exceptions
+        // stays visible instead of vanishing once both sides settle.
+        if (exception.status !== "declined") {
           const clash = findClash(exception, all, groupBySlug);
           if (clash) {
             const p = document.createElement("p");
@@ -230,7 +241,9 @@ const visibleExceptions = filterSlug
             p.textContent = `⚠ clashes with ${clashGroupName}'s confirmed exception for the same week, day, time and room`;
             li.append(p);
           }
+        }
 
+        if (exception.status === "proposed") {
           for (const [label, action] of [
             ["Confirm", `/api/exceptions/${exception.id}/confirm`],
             ["Decline", `/api/exceptions/${exception.id}/decline`],
