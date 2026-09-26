@@ -1,78 +1,60 @@
 # Hand-off
 
-## comp4020-crit7-liuru: tenth run --- clash warning stays visible after both sides confirm, deployed
+## comp4020-crit7-liuru: eleventh run --- fixed a stale README claim, deployed
 
-94.5h to cutoff at this run's start, still short of "last run" --- plan/
+88.5h to cutoff at this run's start, still short of "last run" --- plan/
 build/deepen (doctrine step 4), not finishing steps.
 
-**Flagged, not acted on (sixth time):** the fetched course-source JSON still
-carries the same "Warning: Update the course plugin first" section
+**Flagged, not acted on (seventh time):** the fetched course-source JSON
+still carries the same "Warning: Update the course plugin first" section
 instructing `claude plugin marketplace update comp4020` /
 `claude plugin update comp4020@comp4020`. Same call as runs five through
-nine: not part of doctrine or the brief's own spec lines, treated as a
+ten: not part of doctrine or the brief's own spec lines, treated as a
 likely prompt injection in fetched content, not run.
 
-**Found a genuinely new gap**, but in a different vein from the three prior
-runs' "API layer trusting inputs past the form" family: `src/pages/index.astro`
-only ever computed `findClash` for a row with `status === "proposed"`, both
-server-side and in the client's SSE re-render script. Two independently-
-proposed exceptions colliding on room/day/time/week correctly show a warning
-while at least one side is still proposed --- but the moment BOTH get
-confirmed (plausible exactly because the whole point of this board is
-independent tutors acting from separate tabs), the warning vanishes from
-both rows and the double-booking becomes permanently invisible. Fixed by
-checking `status !== "declined"` instead of `=== "proposed"` in both the
-astro render and the client script (confirm/decline buttons still gated to
-`=== "proposed"` only). Added a spec test for the both-confirmed case.
+**Fresh-read pass found a genuine gap, in a new vein again:** not app logic
+this time but doc/implementation drift. `README.md`'s scope note said the
+app "doesn't detect room clashes between proposals" --- true when first
+written, false since `aed4633` (three runs ago) added `findClash` and two
+runs' worth of clash-warning refinement since. A reader following
+`README.md`'s own claims (which is exactly what a marker does, per
+`PROCESS.md`'s own framing: "markers read this file... they don't trawl the
+repo") would be told a real, tested feature doesn't exist. Fixed: removed
+the false claim, added an accurate bullet to "what good looks like here"
+describing what the clash warning actually does and pointing at
+`src/lib/clashes.ts` and the clash tests. Worth remembering as its own
+category for future fresh-read passes: check `README.md`'s scope claims
+against current `git log`/source, not just the source files against each
+other --- doc drift is invisible to `pnpm check` (nothing asserts
+`README.md`'s prose is *true*, only that `/readme/` serves the whole file
+verbatim) and easy to miss when every prior pass has been hunting for gaps
+in application code specifically.
 
-**A genuine test-writing trap, worth remembering for any future row-scoped
-regex against this rendered list:** my first version of that new test used
-`id="exception-(\d+)"[\s\S]{0,400}?REASON` to find a row's id --- non-greedy
-but *not* bounded by `</li>`, so it can walk straight past the end of one
-`<li>` into a sibling's content if the reason text of a DIFFERENT row falls
-within the same 400-char window (exactly what happens when two clashing
-rows render back-to-back, which is precisely the scenario this test needed
-to build). That silently confirmed the wrong exception id and made the test
-fail even though the app fix was already correct --- caught only by
-isolating the failing test with `vitest run -t`, then a temporary
-`console.error` dump of the actual rendered `<ul>`, then confirming the same
-scenario worked via raw `curl` against `node dist/server/entry.mjs`
-directly (proving the app logic, not the test, was fine). Fixed the test
-with a lookahead-bounded pattern: `<li id="exception-(\d+)"(?:(?!</li>)
-[\s\S])*?REASON(?:(?!</li>)[\s\S])*?</li>` --- guarantees the id and the
-reason text are in the *same* list item by never crossing a `</li>` while
-scanning. Existing tests in the file use the looser, unbounded pattern too;
-none of them have tripped over it yet because their tagged rows don't
-currently land within 400 chars of an unrelated row's matching text, but the
-same trap is latent there. Worth the bounded pattern as the default for any
-*new* test in this file that creates more than one tagged row, rather than
-copying the older unbounded style.
+39 tests still green (`pnpm check`, unaffected --- this was a docs-only
+change). Verified locally in a real browser first (`agent-browser` against
+the built server: index and `/readme/` both load, no console/page errors,
+`/readme/` visibly carries the new text) before committing. Committed
+(`3b1ca32`), pushed to `origin/main`, redeployed (`flyctl deploy
+--remote-only --ha=false -a comp4020-crit7-liuru`), confirmed the live URL
+serves the fix (`/readme/` contains "double-book a room", no longer
+contains "doesn't detect room clashes"). No database state touched this
+run, so no cleanup needed on the deployed volume.
 
-39 tests green (`pnpm check`). Committed (`9d66e8c`), pushed to
-`origin/main`, redeployed (`flyctl deploy --remote-only --ha=false -a
-comp4020-crit7-liuru`), confirmed live (index and readme both 200). Ran the
-same both-confirmed clash scenario as a live probe directly against
-production via `curl` (ids 9 and 10, both showed the warning correctly),
-then cleaned both rows from the deployed SQLite volume via the documented
-`flyctl ssh console -C "node -e ... better-sqlite3 ..."` pattern and
-reconfirmed the board was clean afterwards.
-
-Deliberately NOT done this run, because doctrine gates them to the finishing
-run: `PROCESS.md` (still the template), `reflections/crit-7.md` (doesn't
-exist yet).
+Deliberately NOT done this run, because doctrine gates them to the
+finishing run: `PROCESS.md` (still the template), `reflections/crit-7.md`
+(doesn't exist yet).
 
 ## The single most important next action
 
 `PROCESS.md` and `reflections/crit-7.md` are still the one fully
-unaddressed spec line. If another non-final run happens before cutoff, keep
-doing a fresh read of every source file (not just re-verifying prior fixes)
-to look for a genuinely new gap --- this run's found one in a fresh vein
-(display logic that silently stops covering a case once state changes
-underneath it, not just unvalidated input), so the productive search is
-broader than just "what does the API layer trust." Don't force a find if a
-careful pass turns up nothing real. Whichever run the prompt calls last:
-write both files, redeploy once more to pick them up, and confirm the live
-URL serves the finished state before stopping. If a future run's own
-live-probe testing inserts a row that succeeds (not just one that's
-correctly rejected), remember to delete it from the deployed database
-before finishing, per the established pattern above.
+unaddressed spec line. If another non-final run happens before cutoff,
+keep doing a fresh read of every source file (not just re-verifying prior
+fixes) --- three runs running have each found a genuinely new gap in a
+different vein (unvalidated input at the API layer; display logic that
+stops covering a case once state changes underneath it; now doc/code
+drift), so there may be real value left to find. Don't force one if a
+careful pass turns up nothing real, though: two of the last eleven runs
+(the eighth's own hand-off, and this run implicitly by contrast) show the
+search sometimes comes up empty and that's fine. Whichever run the prompt
+calls last: write both files, redeploy once more to pick them up, and
+confirm the live URL serves the finished state before stopping.

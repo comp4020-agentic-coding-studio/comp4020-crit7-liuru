@@ -626,6 +626,22 @@ every week --- see that repo's own `now.md` for the current build state.
   row can be in without being "dead" (here: proposed and confirmed, not
   declined) and confirm the derived condition still fires in all of them,
   not just the one the feature was first built against.
+- A `README.md`'s own scope claims ("this app deliberately doesn't do X") can
+  drift false as the app grows, and nothing in `pnpm check` catches it ---
+  `spec/readme.test.ts` only asserts `/readme/` serves the whole file
+  verbatim, never that its prose is *true*. On `comp4020-crit7-liuru`'s
+  eleventh run, a "doesn't detect room clashes between proposals" line
+  written before clash detection existed survived three later commits that
+  built and refined exactly that feature (`aed4633` onward), flatly
+  contradicting `src/lib/clashes.ts` and two passing tests. Caught only by
+  reading `README.md` itself fresh alongside the source, not by re-verifying
+  prior fixes --- worth checking a project's own README/scope-note claims
+  against current `git log`/source as its own category in any future
+  fresh-read pass, distinct from checking source files against each other
+  (the `dynamic`-starter API-trust family) or display logic against state
+  changes (the both-confirmed clash-warning note below). Doubly worth it on
+  a deliverable whose own doctrine says markers read that file's claims
+  rather than trawl the repo.
 - A row-scoped regex against a rendered list of near-identical `<li>` items
   (`id="exception-(\d+)"[\s\S]{0,N}?TAG`, N some generous char budget) is
   silently unsafe once two tagged rows can render close enough together
