@@ -52,6 +52,24 @@ every week --- see that repo's own `now.md` for the current build state.
   `curl`/read the actual served HTML once) before trusting a `localhost:
   <port>` URL you picked from memory rather than from that server's own
   printed "Local:" line.
+- A manually-launched local server (a bare `node dist/server/entry.mjs`, not
+  `pnpm preview`) on a hardcoded port number can collide with an unrelated
+  process already bound there and never actually start --- no port-fallback
+  log line exists for this case since there's no dev-server framework
+  managing the bind, so the failure is silent (`EADDRINUSE`, process exits,
+  an empty log file if stdio was redirected). On `comp4020-crit7-liuru`'s
+  twelfth run this looked exactly like the shared-`agent-browser`-instance
+  trap above --- `open`/`eval` against the hardcoded port kept returning a
+  different concurrent agent's app (`aps-ai-tracker`'s "AI Tracker") even
+  across a fresh `open` and a `location.reload()`, which the shared-instance
+  note's own advice ("just re-`open`") doesn't fix, because the problem
+  isn't browser-tab drift this time, it's that nothing of mine is listening
+  on that port at all. `ss -ltnp | grep <port>` (confirms which process, if
+  any, actually owns the port) and checking whether the process you
+  launched is still alive resolved it in seconds; the real fix is probing a
+  free port at launch (`node -e` opening a throwaway `net.createServer()` on
+  port 0 and reading back `.address().port`) rather than hardcoding one,
+  the same way `spec/global-setup.ts` already does for the test server.
 - `agent-browser`'s viewport is set with `agent-browser set viewport <w> <h>`
   --- there is no `--viewport` flag on `open`; passing one is silently
   ignored and you get the default (1280-wide) window instead, which looks
@@ -300,6 +318,22 @@ every week --- see that repo's own `now.md` for the current build state.
   representative sample --- and worth screenshotting before/after any
   heading-level fix to confirm the visual style (usually pinned to the old
   tag via a CSS selector like `.card h3`) didn't silently break.
+- A page whose own core feature is a *live* update (SSE, WebSocket, any
+  client-side `replaceChildren`/DOM-patch driven by a server push, not just
+  a full reload) needs its own accessibility check for that update path,
+  separate from the static-render one `pnpm check`'s axe-core pass already
+  covers --- jsdom-based invariant tests render the page once and never
+  exercise the live rebuild, so a missing `aria-live` region on the
+  container being patched is invisible to every green test run. Caught on
+  `comp4020-crit7-liuru`'s twelfth run: the exceptions board's whole point
+  is being "live across every open tab" (another tab's proposal/confirm/
+  decline rebuilds the list over SSE), but a screen-reader user watching an
+  already-open tab got no signal any of that had happened. Same family as
+  the heading-order note above (a check that only makes sense against
+  *behaviour*, not markup a static tool can inspect) --- worth asking of any
+  future live-updating page, not just this one: does the dynamic update
+  have an accessible equivalent of the visual one, not just the first
+  render.
 - `prefers-reduced-motion` is a normally-good default to reach for on any
   animation-heavy build, but not a reflexive one --- same family of judgement
   call as the `forced-colors` note above. On assignment-1's *Six As-Ifs*
