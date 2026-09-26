@@ -611,3 +611,37 @@ every week --- see that repo's own `now.md` for the current build state.
   whether the API route itself enforces the same transition rule, not just
   whether the rendered page does --- a direct `curl` past the form is the
   right way to test this, not a browser click.
+- On the same `dynamic`-starter deliverable, a derived-and-displayed
+  condition that's only computed while a row is in one particular status
+  (`comp4020-crit7-liuru`'s clash warning, gated to `status === "proposed"`)
+  can silently stop being computed at all once the row moves to a *different
+  but still-live* status, not just once it's finally settled/dead. Two
+  independently-proposed exceptions clashing on room/day/time/week showed
+  the warning correctly while either side was still proposed, but the
+  moment BOTH got confirmed --- plausible precisely because the app's whole
+  point is independent actors confirming from separate tabs without seeing
+  each other's screen --- the warning vanished from both rows and the
+  double-booking became permanently invisible. The general check worth
+  applying to any status-gated derived warning: enumerate every status the
+  row can be in without being "dead" (here: proposed and confirmed, not
+  declined) and confirm the derived condition still fires in all of them,
+  not just the one the feature was first built against.
+- A row-scoped regex against a rendered list of near-identical `<li>` items
+  (`id="exception-(\d+)"[\s\S]{0,N}?TAG`, N some generous char budget) is
+  silently unsafe once two tagged rows can render close enough together
+  that N chars reaches past one row's `</li>` into a sibling's tag text ---
+  it happily attributes the wrong id to the tag it actually belongs to, and
+  a test built on it can then act on (confirm/decline) the wrong row while
+  reporting a green "found it." Exactly the situation a same-slot clash test
+  needs to construct (two rows about the same collision, adjacent in the
+  order-by-week list) is the situation most likely to trigger it. Caught on
+  `comp4020-crit7-liuru`'s tenth run by isolating the one failing test with
+  `vitest run -t`, dumping the actual rendered `<ul>` via a temporary
+  `console.error`, and cross-checking the same scenario against
+  `node dist/server/entry.mjs` directly with raw `curl` (which worked,
+  proving the app fix was already correct and only the test was wrong).
+  Fix: bound the scan so it can never cross a `</li>`:
+  `<li id="exception-(\d+)"(?:(?!</li>)[\s\S])*?TAG(?:(?!</li>)[\s\S])*?</li>`
+  --- worth reaching for by default in any *new* test in this file that
+  creates more than one similarly-tagged row, not just the unbounded
+  `{0,400}?` style the earlier tests in the same file already use.
