@@ -28,15 +28,15 @@ export type { Group, Exception };
 
 // The standing weekly slot for each crit group, as published by the course
 // website's own crit-groups API (comp4020-agentic-coding-studio/api/crit-
-// groups.json), fetched 2026-09-23 and re-checked for drift 2026-09-25 (none
-// found). This table is a read-only local cache of that public data — the
-// app never writes to it — so seeding is idempotent and safe to run on every
-// boot.
+// groups.json), fetched 2026-09-23 and re-checked for drift 2026-09-25 and
+// 2026-09-27 (none found either time). This table is a read-only local cache
+// of that public data — the app never writes to it — so seeding is
+// idempotent and safe to run on every boot.
 //
-// GROUPS_LAST_CHECKED is that same date, exported so the UI can say so —
-// this cache doesn't refresh itself, and nothing else marks it as a
-// point-in-time snapshot rather than always-current.
-export const GROUPS_LAST_CHECKED = "2026-09-25";
+// GROUPS_LAST_CHECKED is the latest of those check dates, exported so the UI
+// can say so — this cache doesn't refresh itself, and nothing else marks it
+// as a point-in-time snapshot rather than always-current.
+export const GROUPS_LAST_CHECKED = "2026-09-27";
 const ROOM = "Marie Reay Building (155), Room 4.03";
 const SEED_GROUPS: Group[] = [
   { slug: "shitao", name: "Shitao", day: "Mon", start: "14:00", end: "15:30", room: ROOM, tutorName: "Ushini Attanayake" },
