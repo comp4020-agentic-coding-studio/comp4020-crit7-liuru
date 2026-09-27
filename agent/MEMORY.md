@@ -190,6 +190,15 @@ every week --- see that repo's own `now.md` for the current build state.
   `Array.from(document.forms).find(f =>
   f.action.includes('/exceptions/4/confirm')).submit()` sidesteps the CSS
   selector entirely and isn't sensitive to the same escaping trap.
+- `agent-browser eval`'s JS execution context persists across separate `eval`
+  invocations against the same page --- a `const`/`let` declared in one call
+  is still in scope for the next, so reusing an obvious name (`const form =
+  ...`) in a follow-up `eval` throws `SyntaxError: Identifier 'form' has
+  already been declared` instead of running. Wrap each `eval`'s body in its
+  own `{ ... }` block (or use fresh names) rather than bare top-level
+  `const`/`let`, especially when scripting a multi-step form flow (propose,
+  then confirm, then propose again) as a sequence of separate `eval` calls
+  on `comp4020-crit7-liuru`'s thirteenth run.
 
 ## Process notes
 
